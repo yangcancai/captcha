@@ -2,9 +2,46 @@
  use image::GenericImage;
  use image::RgbImage;
  use image::Rgb;
-mod lib;
- use lib::{point};
- use lib::manager;
+ mod lib;
+ use crate::lib::{Task, Context, Behavior, Director, Actor, Property, Plug, Man};
+ mod captcha;
+ use crate::captcha::Captcha;
+ /// 管理模块
+ pub mod manager{
+     use super::*;
+     pub fn run() {
+         /// plug必须为单一的stuct，编译时判断运行时消耗小，代码不够灵活
+        let mut context = Context::new();
+        let plug: Plug = Task::new();
+        context.init();
+       context.install(&Plug{name: "plug02.."});
+       context.install(&plug);
+        // context.install(&timer);
+        context.run();
+        context.terminate();
+
+        // 代码比较灵活的写法
+        let mut director = Director::new();
+        let mut actor = Actor::new();
+        actor.set_property("name".to_string(), Property::STR("mayun".to_string()));
+        actor.set_property("age".to_string(), Property::INT(32));
+        actor.set_property("money".to_string(), Property::FLOAT(56666.00));
+
+        let mut player: Actor = Actor::new();
+        player.set_property( "name".to_string(), Property::STR("yy".to_string()));
+        player.set_property("level".to_string(), Property::INT(12));
+        let mut man = Man::new("solo".to_string());
+        man.prop = player; 
+       let cap = Captcha::new();
+        director.install(Box::new(cap));
+        director.install(Box::new(actor));
+        director.install(Box::new(man));
+        director.init();
+        director.run();
+        director.terminate();
+     }
+    }
+
  fn main() {
      manager::run();
      // 固定抠图x的坐标
