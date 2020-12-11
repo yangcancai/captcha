@@ -1,26 +1,17 @@
  use image::GenericImageView;
  use image::GenericImage;
- use image::RgbImage;
- use image::Rgb;
  mod lib;
- use crate::lib::{Task, Context, Behavior, Director, Actor, Property, Plug, Man};
+ use crate::lib::{Behavior, Director, Actor, Property, Man};
  mod captcha;
  use crate::captcha::Captcha;
+ use std::sync::mpsc::{self, TryRecvError};
+ use std::thread;
+ use std::time::Duration;
+ use std::io::{self, BufRead};
  /// 管理模块
  pub mod manager{
      use super::*;
-     pub fn run() {
-         /// plug必须为单一的stuct，编译时判断运行时消耗小，代码不够灵活
-        let mut context = Context::new();
-        let plug: Plug = Task::new();
-        context.init();
-       context.install(&Plug{name: "plug02.."});
-       context.install(&plug);
-        // context.install(&timer);
-        context.run();
-        context.terminate();
-
-        // 代码比较灵活的写法
+     fn init() -> Director {
         let mut director = Director::new();
         let mut actor = Actor::new();
         actor.set_property("name".to_string(), Property::STR("mayun".to_string()));
@@ -34,12 +25,38 @@
         man.prop = player; 
        let cap = Captcha::new();
         director.install(Box::new(cap));
-        director.install(Box::new(actor));
-        director.install(Box::new(man));
+        // director.install(Box::new(actor));
+        // director.install(Box::new(man));
         director.init();
-        director.run();
+        director
+
+     }
+     fn terminate(director: & mut Director){
         director.terminate();
      }
+     pub fn run() {
+         let (tx, rx) = mpsc::channel();
+         thread::spawn(move || {
+              let mut director = init();
+              loop{
+                thread::sleep(Duration::from_millis(1));
+                  match rx.try_recv(){
+                    Ok(_) | Err(TryRecvError::Disconnected) =>{
+                        break;
+                    }
+                        Err(TryRecvError::Empty) => {
+
+                        }
+                    }
+                    director.run();
+              }
+             terminate(&mut director) 
+         });
+         let mut line = String::new();
+         let stdin = io::stdin();
+         let _ = stdin.lock().read_line(&mut line);
+         tx.send(()).unwrap();
+        }
     }
 
  fn main() {
