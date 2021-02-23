@@ -10,3 +10,4 @@ edition = "2018"
 image = "0.23.11"
 num-complex = "0.2.4"
 rand = "0.6.0"
+rocket = {git = "https://github.com/SergioBenitez/Rocket.git", branch = "master"}
