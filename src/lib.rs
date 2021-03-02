@@ -3,7 +3,8 @@ extern crate num_complex;
 use image::DynamicImage;
 use image::GenericImage;
 use image::Rgba;
-use std::collections::HashMap;
+use std::{rc::Rc, sync::Mutex};
+use std::{cell::RefCell, collections::HashMap, sync::Arc};
 /// 管理模块
 
 pub struct Plug<'a> {
@@ -70,6 +71,10 @@ pub trait Behavior {
     fn run(&mut self) -> bool {
         true
     }
+   fn run_director(&mut self, _director: D) -> bool {
+        true
+    }
+
     fn terminate(&mut self) -> bool {
         true
     }
@@ -179,11 +184,12 @@ impl Behavior for Actor {
         true
     }
 }
+pub type D = Rc<RefCell<Director>>;
 impl Director {
-    pub fn new() -> Self {
-        Director {
+    pub fn new() -> D {
+        Rc::new(RefCell::new(Director {
             actors: HashMap::new(),
-        }
+        }))
     }
     pub fn install(&mut self, actor: Box<dyn Behavior>) {
         self.actors.insert(actor.name().to_string(), actor);
@@ -199,6 +205,11 @@ impl Behavior for Director {
     fn run(&mut self) -> bool {
         for (_, e) in self.actors.iter_mut() {
             e.run();
+        }
+        true
+    }fn run_director(&mut self, director: D) -> bool {
+        for (_, e) in director.borrow().actors.iter() {
+            // e.run();
         }
         true
     }

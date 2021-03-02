@@ -1,20 +1,30 @@
-use rocket::{tokio::runtime::Runtime, Shutdown};
-use std::thread;
+use crate::captcha::{DoubleBuffer, get_captcha};
+use crate::captcha::DstDoubleBuffer;
+use rocket::{tokio::runtime::Runtime, Shutdown, State};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::Arc, thread};
+
+use crate::captcha::Captcha;
 
 use super::lib::Behavior;
+use super::lib::Director;
+use super::lib::D;
 pub struct Phx {
     thread: Option<thread::JoinHandle<()>>,
-    handle: Shutdown,
+    handle: Shutdown
 }
-
 #[get("/")]
-fn hello() -> &'static str {
+fn hello(state: State<DoubleBuffer>) -> &'static str {
+    if let Ok(p) = get_captcha(Arc::clone(&state)){
+        println!("ok...");
+       p.dst_image.save("a.png") ;
+       p.dst_block.save("b.png");
+    }
     "Hello, world!"
 }
 
 impl Phx {
-    pub fn new() -> Self {
-        let rocket = rocket::ignite().mount("/", routes![hello]);
+    pub fn new(dst_double_buffer: DoubleBuffer) -> Self {
+        let rocket = rocket::ignite().mount("/", routes![hello]).manage(dst_double_buffer);
         let handle = rocket.shutdown();
         let thread = thread::spawn(move || {
             let r = rocket.launch();
@@ -23,7 +33,7 @@ impl Phx {
         });
         Phx {
             thread: Some(thread),
-            handle: handle,
+            handle: handle
         }
     }
 }

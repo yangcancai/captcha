@@ -11,9 +11,15 @@ use std::time::Duration;
 
 /// 管理模块
 pub mod manager {
+    use crate::captcha::DstDoubleBuffer;
+use crate::lib::D;
+use std::{cell::RefCell, rc::Rc, sync::Arc};
+  pub struct test<'a>{
+      a: &'a mut i32
+  }
     use super::*;
-    fn init() -> Director {
-        let mut director = Director::new();
+    fn init() -> D {
+        let director = Director::new();
         let mut actor = Actor::new();
         actor.set_property("name".to_string(), Property::STR("mayun".to_string()));
         actor.set_property("age".to_string(), Property::INT(32));
@@ -24,32 +30,34 @@ pub mod manager {
         player.set_property("level".to_string(), Property::INT(12));
         let mut man = Man::new("solo".to_string());
         man.prop = player;
-        let cap = Captcha::new();
-        director.install(Box::new(cap));
-        let phx = Phx::new();
-        director.install(Box::new(phx));
-        // director.install(Box::new(man));
-        director.init();
+        let dst_double_buffer = DstDoubleBuffer::new();
+        let cap = Box::new(Captcha::new(Arc::clone(&dst_double_buffer)));
+        director.borrow_mut().install(cap);
+        let phx = Phx::new(Arc::clone(&dst_double_buffer));
+        director.borrow_mut().install(Box::new(phx));
+        // a.install(Box::new(man));
+        director.borrow_mut().init();
         director
     }
-    fn terminate(director: &mut Director) {
-        director.terminate();
+
+    fn terminate(director: D) {
+        director.borrow_mut().terminate();
     }
     pub fn run() {
         let (tx, rx) = mpsc::channel();
         let thread = thread::spawn(move || {
-            let mut director = init();
-            loop {
-                thread::sleep(Duration::from_millis(1));
-                match rx.try_recv() {
-                    Ok(_) | Err(TryRecvError::Disconnected) => {
-                        break;
+            let director = init();
+                loop {
+                    thread::sleep(Duration::from_millis(1));
+                    match rx.try_recv() {
+                        Ok(_) | Err(TryRecvError::Disconnected) => {
+                            break;
+                        }
+                        Err(TryRecvError::Empty) => {}
                     }
-                    Err(TryRecvError::Empty) => {}
+                    director.borrow_mut().run();
                 }
-                director.run();
-            }
-            terminate(&mut director)
+            terminate(director)
         });
         let mut line = String::new();
         let stdin = io::stdin();
