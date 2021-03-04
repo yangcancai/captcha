@@ -12,11 +12,11 @@ use std::time::Duration;
 /// 管理模块
 pub mod manager {
     use crate::captcha::DstDoubleBuffer;
-use crate::lib::D;
-use std::{cell::RefCell, rc::Rc, sync::Arc};
-  pub struct test<'a>{
-      a: &'a mut i32
-  }
+    use crate::lib::D;
+    use std::{cell::RefCell, rc::Rc, sync::Arc};
+    pub struct test<'a> {
+        a: &'a mut i32,
+    }
     use super::*;
     fn init() -> D {
         let director = Director::new();
@@ -47,16 +47,16 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
         let (tx, rx) = mpsc::channel();
         let thread = thread::spawn(move || {
             let director = init();
-                loop {
-                    thread::sleep(Duration::from_millis(1));
-                    match rx.try_recv() {
-                        Ok(_) | Err(TryRecvError::Disconnected) => {
-                            break;
-                        }
-                        Err(TryRecvError::Empty) => {}
+            loop {
+                thread::sleep(Duration::from_millis(1));
+                match rx.try_recv() {
+                    Ok(_) | Err(TryRecvError::Disconnected) => {
+                        break;
                     }
-                    director.borrow_mut().run();
+                    Err(TryRecvError::Empty) => {}
                 }
+                director.borrow_mut().run();
+            }
             terminate(director)
         });
         let mut line = String::new();

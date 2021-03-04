@@ -1,30 +1,57 @@
-use crate::captcha::{DoubleBuffer, get_captcha};
 use crate::captcha::DstDoubleBuffer;
+use crate::captcha::{get_captcha, DoubleBuffer};
+use crate::io::Cursor;
+use base64::STANDARD;
+use image::EncodableLayout;
+use rocket::http::hyper::header::CONTENT_TYPE;
+use rocket::http::Header;
+use rocket::Response;
 use rocket::{tokio::runtime::Runtime, Shutdown, State};
-use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::Arc, thread};
+use std::{borrow::Borrow, cell::RefCell, collections::HashMap, rc::Rc, sync::Arc, thread};
 
 use crate::captcha::Captcha;
 
 use super::lib::Behavior;
 use super::lib::Director;
 use super::lib::D;
+use std::str;
+extern crate base64;
+
 pub struct Phx {
     thread: Option<thread::JoinHandle<()>>,
-    handle: Shutdown
+    handle: Shutdown,
 }
 #[get("/")]
-fn hello(state: State<DoubleBuffer>) -> &'static str {
-    if let Ok(p) = get_captcha(Arc::clone(&state)){
-        println!("ok...");
-       p.dst_image.save("a.png") ;
-       p.dst_block.save("b.png");
+fn hello(state: State<DoubleBuffer>) -> Response {
+    let mut response = Response::new();
+   let header =  Header::new(CONTENT_TYPE.as_str(), "text/html");
+    response.adjoin_header(header);
+    match get_captcha(Arc::clone(&state)) {
+        Ok(p) => {
+            let image_bytes = p.dst_block.to_rgba8().into_raw();
+            p.dst_block.save("a.png").unwrap();
+            let rs = base64::encode(image_bytes);
+            let body = format!(
+                "<html>\n<body>\n<image src=\"data:image/png;base64, {}\"/>\n</body>\n</html>",
+                rs
+            );
+            response.set_sized_body(body.len(), Cursor::new(body));
+            response
+        }
+
+        Err(_) => {
+            let not_found = "Not Found";
+            response.set_sized_body(not_found.len(), Cursor::new(not_found));
+            response
+        }
     }
-    "Hello, world!"
 }
 
 impl Phx {
     pub fn new(dst_double_buffer: DoubleBuffer) -> Self {
-        let rocket = rocket::ignite().mount("/", routes![hello]).manage(dst_double_buffer);
+        let rocket = rocket::ignite()
+            .mount("/", routes![hello])
+            .manage(dst_double_buffer);
         let handle = rocket.shutdown();
         let thread = thread::spawn(move || {
             let r = rocket.launch();
@@ -33,7 +60,7 @@ impl Phx {
         });
         Phx {
             thread: Some(thread),
-            handle: handle
+            handle: handle,
         }
     }
 }

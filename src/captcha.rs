@@ -1,17 +1,16 @@
-use std::{borrow::BorrowMut, sync::Mutex};
-use core::cell::RefCell;
-use std::{rc::Rc, sync::Arc};
 use super::lib::Behavior;
 use image::DynamicImage;
 use image::GenericImage;
 use image::GenericImageView;
 use rand::prelude::*;
 use rand::Rng;
-use std::{path::PathBuf};
+use random_fast_rng::{local_rng, Random};
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::vec::Vec;
 use std::{fs, io};
-use random_fast_rng::{Random, local_rng};
 pub enum Error {
     NotFound,
 }
@@ -23,23 +22,22 @@ pub enum Error {
 
 #[derive(Clone)]
 pub struct Pair {
-   pub dst_image: DynamicImage,
-   pub dst_block: DynamicImage,
-   pub x: u32,
-   pub y: u32
+    pub dst_image: DynamicImage,
+    pub dst_block: DynamicImage,
+    pub x: u32,
+    pub y: u32,
 }
-pub struct DstDoubleBuffer{
+pub struct DstDoubleBuffer {
     pub dst_buffer_one: Vec<Pair>,
     pub dst_buffer_two: Vec<Pair>,
     // pub rng: Arc<Mutex<ThreadRng>>
 }
 pub type DoubleBuffer = Arc<Mutex<DstDoubleBuffer>>;
-impl  DstDoubleBuffer {
-   pub fn new() -> DoubleBuffer{
-        Arc::new(Mutex::new(DstDoubleBuffer{
+impl DstDoubleBuffer {
+    pub fn new() -> DoubleBuffer {
+        Arc::new(Mutex::new(DstDoubleBuffer {
             dst_buffer_one: Vec::new(),
-            dst_buffer_two: Vec::new()
-            // rng: Arc::new(Mutex::new(thread_rng()))
+            dst_buffer_two: Vec::new(), // rng: Arc::new(Mutex::new(thread_rng()))
         }))
     }
 }
@@ -53,19 +51,18 @@ pub struct Captcha {
     // next_time to gennerate, timestamp
     // 10 bits
     next_epoch: u64,
-    rng: ThreadRng
+    rng: ThreadRng,
 }
-pub fn get_captcha(dst_double_buffer: DoubleBuffer) -> Result<Pair,Error>{
- let dst = dst_double_buffer.lock().unwrap();
-        if dst.dst_buffer_one.len() > 0 {
-            let random_u8 = local_rng().get_usize();
-            let n = random_u8 % dst.dst_buffer_one.len();
-            println!("n=={}",n);
-            let pair = dst.dst_buffer_one[n].clone();
-            Ok(pair)
-        } else {
-            Err(Error::NotFound)
-        }
+pub fn get_captcha(dst_double_buffer: DoubleBuffer) -> Result<Pair, Error> {
+    let dst = dst_double_buffer.lock().unwrap();
+    if dst.dst_buffer_one.len() > 0 {
+        let random_u8 = local_rng().get_usize();
+        let n = random_u8 % dst.dst_buffer_one.len();
+        let pair = dst.dst_buffer_one[n].clone();
+        Ok(pair)
+    } else {
+        Err(Error::NotFound)
+    }
 }
 impl Captcha {
     pub fn new(dst_double_buffer: DoubleBuffer) -> Self {
@@ -93,7 +90,7 @@ impl Captcha {
         let original_block = image::open(file).unwrap();
         self.original_block.push(original_block);
     }
-    fn rand_origin_block(&mut self) -> (DynamicImage, DynamicImage){
+    fn rand_origin_block(&mut self) -> (DynamicImage, DynamicImage) {
         let rand1 = self.rng.gen_range(0, self.original_block.len());
         let rand2 = self.rng.gen_range(0, self.original_image.len());
         // 抠图图片
@@ -101,15 +98,16 @@ impl Captcha {
         // 原生图片
         let original = self.original_image[rand2].clone();
         (slidingblock, original)
-
     }
     fn generate(&mut self) -> bool {
         let (mut slidingblock, mut original) = self.rand_origin_block();
         // 固定抠图x的坐标
-        let rand_x = self.rng.gen_range(10, original.width() - 2 * slidingblock.width()-20);
+        let rand_x = self
+            .rng
+            .gen_range(10, original.width() - 2 * slidingblock.width() - 20);
         // y的坐标固定为0，方便滑动的时候只进行往右滑动
         let rand_y = 0;
-               for x in 0..slidingblock.width() {
+        for x in 0..slidingblock.width() {
             for y in 0..slidingblock.height() {
                 // 找到不是透明的像素,把原生的像素copy到抠图图片
                 let pixel = slidingblock.get_pixel(x, y);
@@ -143,10 +141,16 @@ impl Captcha {
             y: rand_y,
         };
         if self.dst_double_buffer.lock().unwrap().dst_buffer_one.len() < 10 {
-            self.dst_double_buffer.lock().unwrap().dst_buffer_one.push(p);
+            self.dst_double_buffer
+                .lock()
+                .unwrap()
+                .dst_buffer_one
+                .push(p);
         } else {
-            let n = self.rng.gen_range(0, self.dst_double_buffer.lock().unwrap().dst_buffer_one.len());
-            println!("gen n = {}", n);
+            let n = self.rng.gen_range(
+                0,
+                self.dst_double_buffer.lock().unwrap().dst_buffer_one.len(),
+            );
             self.dst_double_buffer.lock().unwrap().dst_buffer_one[n] = p;
         }
         true

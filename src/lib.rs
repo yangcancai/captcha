@@ -3,8 +3,8 @@ extern crate num_complex;
 use image::DynamicImage;
 use image::GenericImage;
 use image::Rgba;
-use std::{rc::Rc, sync::Mutex};
 use std::{cell::RefCell, collections::HashMap, sync::Arc};
+use std::{rc::Rc, sync::Mutex};
 /// 管理模块
 
 pub struct Plug<'a> {
@@ -71,7 +71,7 @@ pub trait Behavior {
     fn run(&mut self) -> bool {
         true
     }
-   fn run_director(&mut self, _director: D) -> bool {
+    fn run_director(&mut self, _director: D) -> bool {
         true
     }
 
@@ -207,7 +207,8 @@ impl Behavior for Director {
             e.run();
         }
         true
-    }fn run_director(&mut self, director: D) -> bool {
+    }
+    fn run_director(&mut self, director: D) -> bool {
         for (_, e) in director.borrow().actors.iter() {
             // e.run();
         }
