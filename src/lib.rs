@@ -1,10 +1,7 @@
 extern crate image;
 extern crate num_complex;
-use image::DynamicImage;
-use image::GenericImage;
-use image::Rgba;
-use std::{cell::RefCell, collections::HashMap, sync::Arc};
-use std::{rc::Rc, sync::Mutex};
+use std::rc::Rc;
+use std::{cell::RefCell, collections::HashMap};
 /// 管理模块
 
 pub struct Plug<'a> {
@@ -71,10 +68,6 @@ pub trait Behavior {
     fn run(&mut self) -> bool {
         true
     }
-    fn run_director(&mut self, _director: D) -> bool {
-        true
-    }
-
     fn terminate(&mut self) -> bool {
         true
     }
@@ -208,12 +201,6 @@ impl Behavior for Director {
         }
         true
     }
-    fn run_director(&mut self, director: D) -> bool {
-        for (_, e) in director.borrow().actors.iter() {
-            // e.run();
-        }
-        true
-    }
     fn terminate(&mut self) -> bool {
         for (_, e) in self.actors.iter_mut() {
             e.terminate();
@@ -222,43 +209,5 @@ impl Behavior for Director {
     }
     fn name(&self) -> &str {
         &""
-    }
-}
-
-pub fn point(
-    img: &mut image::ImageBuffer<Rgba<u8>, Vec<u8>>,
-    x: i32,
-    y: i32,
-    offx: i32,
-    offy: i32,
-) {
-    let pixel = *img.get_pixel((offx + x) as u32, (offy + y) as u32);
-    img.put_pixel(
-        (offx + x) as u32,
-        (offy + y) as u32,
-        image::Rgba([pixel[0], pixel[1], pixel[2], 100]),
-    );
-    // img.put_pixel((offx + x) as u32, (offy - y) as u32, image::Rgba([255,255,255,0]));
-    // img.put_pixel((offx - x) as u32,(offy + y) as u32, image::Rgba([0,0,0,0]));
-    // img.put_pixel((offx - x) as u32, (offy - y) as u32, image::Rgba([0,0,0,0]));
-    // img.put_pixel((offx + y) as u32,(offy + x) as u32, image::Rgba([0,0,0,0]));
-    // img.put_pixel((offx + y) as u32,(offy - x) as u32, image::Rgba([0,0,0,0]));
-    // img.put_pixel((offx - y) as u32,(offy + x) as u32, image::Rgba([0,0,0,0]));
-    // img.put_pixel((offx - y) as u32,(offy - x) as u32, image::Rgba([0,0,0,0]));
-}
-pub fn draw(img: &mut image::ImageBuffer<Rgba<u8>, Vec<u8>>, x1: i32, y1: i32, r: i32) {
-    let mut x: i32 = 0;
-    let mut y = r;
-    let mut e: i32 = 1 - r as i32;
-    point(img, x, y, x1, y1);
-    while x <= y {
-        if e < 0 {
-            e += 2 * x + 3;
-        } else {
-            e += 2 * (x - y) + 5;
-            y -= 1;
-        }
-        x += 1;
-        point(img, x, y, x1, y1)
     }
 }

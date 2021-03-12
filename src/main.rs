@@ -3,7 +3,6 @@ use crate::lib::{Actor, Behavior, Director, Man, Property};
 mod captcha;
 mod phx;
 use crate::captcha::Captcha;
-use crate::phx::Phx;
 use std::io::{self, BufRead};
 use std::sync::mpsc::{self, TryRecvError};
 use std::thread;
@@ -11,13 +10,11 @@ use std::time::Duration;
 
 /// 管理模块
 pub mod manager {
+    use super::*;
     use crate::captcha::DstDoubleBuffer;
     use crate::lib::D;
-    use std::{cell::RefCell, rc::Rc, sync::Arc};
-    pub struct test<'a> {
-        a: &'a mut i32,
-    }
-    use super::*;
+    use crate::phx::Phx;
+    use std::sync::Arc;
     fn init() -> D {
         let director = Director::new();
         let mut actor = Actor::new();
@@ -33,9 +30,8 @@ pub mod manager {
         let dst_double_buffer = DstDoubleBuffer::new();
         let cap = Box::new(Captcha::new(Arc::clone(&dst_double_buffer)));
         director.borrow_mut().install(cap);
-        let phx = Phx::new(Arc::clone(&dst_double_buffer));
-        director.borrow_mut().install(Box::new(phx));
-        // a.install(Box::new(man));
+        let phx = Box::new(Phx::new(Arc::clone(&dst_double_buffer)));
+        director.borrow_mut().install(phx);
         director.borrow_mut().init();
         director
     }

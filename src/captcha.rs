@@ -82,7 +82,7 @@ impl Captcha {
         Ok(entries)
     }
     fn load_original(&mut self, file: PathBuf) {
-        let original_image = image::open(file).unwrap().to_rgba();
+        let original_image = image::open(file).unwrap().to_rgba8();
         self.original_image
             .push(DynamicImage::ImageRgba8(original_image));
     }
