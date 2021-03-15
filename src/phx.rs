@@ -5,6 +5,7 @@ use rocket::http::hyper::header::CONTENT_TYPE;
 use rocket::http::Header;
 use rocket::Response;
 use rocket::{tokio::runtime::Runtime, Shutdown, State};
+use rocket_contrib::serve::StaticFiles;
 use std::{sync::Arc, thread};
 extern crate base64;
 
@@ -22,7 +23,9 @@ fn hello(state: State<DoubleBuffer>) -> Response {
             // let image_bytes = p.dst_block.to_rgba8().into_raw();
             use std::io::Cursor;
             let mut buff = Cursor::new(vec![]);
-            p.dst_block.write_to(&mut buff, image::ImageOutputFormat::Png).unwrap();
+            p.dst_block
+                .write_to(&mut buff, image::ImageOutputFormat::Png)
+                .unwrap();
             let rs = base64::encode(buff.get_ref());
             let body = format!(
                 "<html>\n<body>\n<image src=\"data:image/png;base64, {}\"/>\n</body>\n</html>",
@@ -39,11 +42,11 @@ fn hello(state: State<DoubleBuffer>) -> Response {
         }
     }
 }
-
 impl Phx {
     pub fn new(dst_double_buffer: DoubleBuffer) -> Self {
         let rocket = rocket::ignite()
-            .mount("/", routes![hello])
+            .mount("/hello", routes![hello])
+            .mount("/", StaticFiles::from("./priv/static"))
             .manage(dst_double_buffer);
         let handle = rocket.shutdown();
         let thread = thread::spawn(move || {
