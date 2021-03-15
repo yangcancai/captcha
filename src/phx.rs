@@ -46,7 +46,8 @@ impl Phx {
     pub fn new(dst_double_buffer: DoubleBuffer) -> Self {
         let rocket = rocket::ignite()
             .mount("/hello", routes![hello])
-            .mount("/", StaticFiles::from("./priv/static"))
+            .mount("/static/", StaticFiles::from("./priv/static"))
+            .mount("/captcha-web/", StaticFiles::from("./priv/"))
             .manage(dst_double_buffer);
         let handle = rocket.shutdown();
         let thread = thread::spawn(move || {
