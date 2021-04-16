@@ -2,6 +2,7 @@ mod lib;
 use crate::lib::{Actor, Behavior, Director, Man, Property};
 mod captcha;
 mod phx;
+mod token;
 use crate::captcha::Captcha;
 use std::io::{self, BufRead};
 use std::sync::mpsc::{self, TryRecvError};

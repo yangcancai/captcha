@@ -5,47 +5,96 @@ use rocket::http::hyper::header::CONTENT_TYPE;
 use rocket::http::Header;
 use rocket::Response;
 use rocket::{tokio::runtime::Runtime, Shutdown, State};
-use rocket_contrib::serve::StaticFiles;
+use rocket_contrib::{json::Json, serve::StaticFiles};
 use std::{sync::Arc, thread};
+use serde_json::{Result, json};
+use josekit::{JoseError, Map, Value, jwe::{JweHeader, A128KW}, jwt::{self, JwtPayload}};
+use crate::token::Token;
+use serde::{Deserialize, Serialize};
 extern crate base64;
-
+#[derive(Deserialize, Serialize)]
+pub struct Position{
+     captchaType: String,
+	 pointJson: String, 
+	 token: String
+}
 pub struct Phx {
     thread: Option<thread::JoinHandle<()>>,
     handle: Shutdown,
 }
 #[get("/")]
-fn hello(state: State<DoubleBuffer>) -> Response {
+fn captcha_get(state: State<DoubleBuffer>) -> Response {
     let mut response = Response::new();
-    let header = Header::new(CONTENT_TYPE.as_str(), "text/html");
+    let header = Header::new(CONTENT_TYPE.as_str(), "application/json");
     response.adjoin_header(header);
     match get_captcha(Arc::clone(&state)) {
         Ok(p) => {
-            // let image_bytes = p.dst_block.to_rgba8().into_raw();
             use std::io::Cursor;
-            let mut buff = Cursor::new(vec![]);
+            let (mut dst_block_buff, mut dst_image_buff) = (Cursor::new(vec![]), Cursor::new(vec![]));
             p.dst_block
-                .write_to(&mut buff, image::ImageOutputFormat::Png)
+                .write_to(&mut dst_block_buff, image::ImageOutputFormat::Png)
                 .unwrap();
-            let rs = base64::encode(buff.get_ref());
-            let body = format!(
-                "<html>\n<body>\n<image src=\"data:image/png;base64, {}\"/>\n</body>\n</html>",
-                rs
-            );
-            response.set_sized_body(body.len(), Cursor::new(body));
+            let dst_block_base64 = base64::encode(dst_block_buff.get_ref());
+            p.dst_image
+                .write_to(&mut dst_image_buff, image::ImageOutputFormat::Png)
+                .unwrap();
+            let dst_image_base64 = base64::encode(dst_image_buff.get_ref());
+            let token = Token::new();
+            let mut claim = Map::new();
+            claim.insert("x".to_string(), json!(p.x));
+            claim.insert("y".to_string(), json!(p.y));
+            let token = token.encode(claim, 30);
+            let body = json!({
+                    "repCode": "0000",
+                    "repData": {
+                        "originalImageBase64": dst_image_base64,
+                         "jigsawImageBase64": dst_block_base64,
+                        "token": token, //一次校验唯一标识
+                        "result": false,
+                        "opAdmin": false
+                    },
+                    "success": true,
+                    "error": false
+            });
+            response.set_sized_body(body.to_string().len(), Cursor::new(body.to_string()));
             response
         }
 
         Err(_) => {
-            let not_found = "Not Found";
-            response.set_sized_body(not_found.len(), Cursor::new(not_found));
+            let body = json!({
+                    "repCode": "0001",
+                    "success": false,
+                    "error": true 
+            });
+            response.set_sized_body(body.to_string().len(), Cursor::new(body.to_string()));
             response
         }
     }
 }
+#[post("/",format = "json", data = "<position>")]
+fn captcha_check(state: State<DoubleBuffer>, position: Json<Position>) -> Response {
+    let mut response = Response::new();
+    let header = Header::new(CONTENT_TYPE.as_str(), "application/json");
+    response.adjoin_header(header);
+    let body = json!({
+        "repCode": "0000",
+        "repData": {
+            "captchaType": "blockPuzzle",
+            "token": "71dd26999e314f9abb0c635336976635",
+            "result": true,
+            "opAdmin": false
+        },
+        "success": true,
+        "error": false 
+            });
+    response.set_sized_body(body.to_string().len(), Cursor::new(body.to_string()));
+    response
+}
 impl Phx {
     pub fn new(dst_double_buffer: DoubleBuffer) -> Self {
         let rocket = rocket::ignite()
-            .mount("/hello", routes![hello])
+            .mount("/captcha/get", routes![captcha_get])
+            .mount("/captcha/check", routes![captcha_check])
             .mount("/static/", StaticFiles::from("./priv/static"))
             .mount("/captcha-web/", StaticFiles::from("./priv/"))
             .manage(dst_double_buffer);
