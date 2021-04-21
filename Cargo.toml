@@ -17,3 +17,7 @@ rocket_contrib = { git = "https://github.com/SergioBenitez/Rocket.git", branch =
  base64 = "0.13.0"
  josekit = "0.7.1"
  serde = {version = "1.0", features = ["derive"] }
+ block-modes = "0.7.0"
+ aes = "0.6.0"
+ hex-literal = "*"
+ hex = "*"

@@ -1,22 +1,17 @@
-mod lib;
-use crate::lib::{Actor, Behavior, Director, Man, Property};
-mod captcha;
-mod phx;
-mod token;
-use crate::captcha::Captcha;
+use captcha::{Actor, Behavior, Director, Man, Property};
 use std::io::{self, BufRead};
 use std::sync::mpsc::{self, TryRecvError};
 use std::thread;
 use std::time::Duration;
-
+use captcha::captcha::DstDoubleBuffer;
+use captcha::D;
+use captcha::phx::Phx;
+use std::sync::Arc;
+use captcha::captcha::Captcha;
 /// 管理模块
 pub mod manager {
     use super::*;
-    use crate::captcha::DstDoubleBuffer;
-    use crate::lib::D;
-    use crate::phx::Phx;
-    use std::sync::Arc;
-    fn init() -> D {
+        fn init() -> D {
         let director = Director::new();
         let mut actor = Actor::new();
         actor.set_property("name".to_string(), Property::STR("mayun".to_string()));

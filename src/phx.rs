@@ -1,36 +1,51 @@
-use crate::captcha::{get_captcha, DoubleBuffer};
-use crate::io::Cursor;
-use crate::Behavior;
-use rocket::http::hyper::header::CONTENT_TYPE;
+use std::io::Cursor;
+use super::token::Token;
+use super::Behavior;
+use super::{
+    captcha::{get_captcha, DoubleBuffer},
+    token::TokenError,
+};
+use josekit::{
+    jwe::{JweHeader, A128KW},
+    jwt::{self, JwtPayload},
+    JoseError, Map, Value,
+};
+use rocket::{http::hyper::header::CONTENT_TYPE, post};
 use rocket::http::Header;
 use rocket::Response;
+use rocket::routes;
 use rocket::{tokio::runtime::Runtime, Shutdown, State};
 use rocket_contrib::{json::Json, serve::StaticFiles};
-use std::{sync::Arc, thread};
-use serde_json::{Result, json};
-use josekit::{JoseError, Map, Value, jwe::{JweHeader, A128KW}, jwt::{self, JwtPayload}};
-use crate::token::Token;
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Result};
+use std::{sync::Arc, thread};
 extern crate base64;
-#[derive(Deserialize, Serialize)]
-pub struct Position{
-     captchaType: String,
-	 pointJson: String, 
-	 token: String
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Position {
+    captchaType: String,
+    pointJson: String,
+    token: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CaptchaType {
+    captchaType: String,
 }
 pub struct Phx {
     thread: Option<thread::JoinHandle<()>>,
     handle: Shutdown,
 }
-#[get("/")]
-fn captcha_get(state: State<DoubleBuffer>) -> Response {
+#[post("/", format = "json", data = "<cap_type>")]
+fn captcha_get(state: State<DoubleBuffer>, cap_type: Json<CaptchaType>) -> Response {
+    println!("cap_type = {:?}", cap_type.0.captchaType);
     let mut response = Response::new();
     let header = Header::new(CONTENT_TYPE.as_str(), "application/json");
     response.adjoin_header(header);
     match get_captcha(Arc::clone(&state)) {
         Ok(p) => {
             use std::io::Cursor;
-            let (mut dst_block_buff, mut dst_image_buff) = (Cursor::new(vec![]), Cursor::new(vec![]));
+            let (mut dst_block_buff, mut dst_image_buff) =
+                (Cursor::new(vec![]), Cursor::new(vec![]));
             p.dst_block
                 .write_to(&mut dst_block_buff, image::ImageOutputFormat::Png)
                 .unwrap();
@@ -64,29 +79,44 @@ fn captcha_get(state: State<DoubleBuffer>) -> Response {
             let body = json!({
                     "repCode": "0001",
                     "success": false,
-                    "error": true 
+                    "error": true
             });
             response.set_sized_body(body.to_string().len(), Cursor::new(body.to_string()));
             response
         }
     }
 }
-#[post("/",format = "json", data = "<position>")]
-fn captcha_check(state: State<DoubleBuffer>, position: Json<Position>) -> Response {
+#[post("/", format = "json", data = "<position>")]
+fn captcha_check(_state: State<DoubleBuffer>, position: Json<Position>) -> Response {
+    let pos = position.0;
+    // check token
+    let token = Token::new();
+    let body = match token.verify(&pos.token) {
+        Ok(_) => {
+            json!({
+            "repCode": "0000",
+            "repData": {
+                "captchaType": "blockPuzzle",
+                "token": pos.token,
+                "result": true,
+                "opAdmin": false
+            },
+            "success": true,
+            "error": false
+                })
+        },
+        Err(e) => {
+            println!("token error = {:?}", e);
+            json!({
+            "repCode": "0001",
+            "success": false,
+            "error": true
+                })
+        }
+    };
     let mut response = Response::new();
     let header = Header::new(CONTENT_TYPE.as_str(), "application/json");
     response.adjoin_header(header);
-    let body = json!({
-        "repCode": "0000",
-        "repData": {
-            "captchaType": "blockPuzzle",
-            "token": "71dd26999e314f9abb0c635336976635",
-            "result": true,
-            "opAdmin": false
-        },
-        "success": true,
-        "error": false 
-            });
     response.set_sized_body(body.to_string().len(), Cursor::new(body.to_string()));
     response
 }

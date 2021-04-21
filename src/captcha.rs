@@ -1,4 +1,4 @@
-use super::lib::Behavior;
+use super::Behavior;
 use image::DynamicImage;
 use image::GenericImage;
 use image::GenericImageView;

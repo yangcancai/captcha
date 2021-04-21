@@ -2,6 +2,10 @@ extern crate image;
 extern crate num_complex;
 use std::rc::Rc;
 use std::{cell::RefCell, collections::HashMap};
+pub mod token;
+pub mod captcha;
+pub mod phx;
+
 /// 管理模块
 
 pub struct Plug<'a> {
