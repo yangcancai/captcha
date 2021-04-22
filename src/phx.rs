@@ -76,6 +76,7 @@ fn captcha_get(state: State<DoubleBuffer>, cap_type: Json<CaptchaType>) -> Respo
             let mut claim = Map::new();
             claim.insert("x".to_string(), json!(p.x));
             claim.insert("y".to_string(), json!(p.y));
+            println!("claim = {:?}", claim);
             let token = token.encode(claim, 30);
             let body = json!({
                     "repCode": "0000",
@@ -113,13 +114,15 @@ fn captcha_check(_state: State<DoubleBuffer>, position: Json<Position>) -> Respo
     let pos = position.0;
     // check token
     let token = Token::new();
+    println!("position = {:?}", pos);
     let body = match token.verify(&pos.token) {
         Ok(claim) => {
             //
             match token.aes_decode::<Point>(pos.pointJson.as_str()) {
                 Ok(point) => {
+                    println!("point = {:?}", point);
                     let diff = claim["x"].as_i64().unwrap() - point.x;
-                   let r = if diff < 5 || diff > -5 {
+                   let r = if diff < 5 && diff > -5 {
                         json!({
                         "repCode": "0000",
                         "repData": {
