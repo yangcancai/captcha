@@ -1,9 +1,13 @@
 use aes::Aes128;
-use block_modes::{BlockMode, BlockModeError, Ecb};
 use block_modes::block_padding::Pkcs7;
+use block_modes::{BlockMode, BlockModeError, Ecb};
 use hex_literal::hex;
 use rocket::futures::AsyncReadExt;
-use std::{borrow::Borrow, ops::Add, time::{Duration, SystemTime}};
+use std::{
+    borrow::Borrow,
+    ops::Add,
+    time::{Duration, SystemTime},
+};
 
 use josekit::{
     jwe::{JweHeader, A128KW},
@@ -12,27 +16,36 @@ use josekit::{
 };
 
 const SECRET_KEY: &str = "XwKsGlMcdPMEhR1B";
+const IV: &str = SECRET_KEY;
 pub struct Token<'a> {
     jwt_secret: &'a str,
     aes_key: String,
-    aes_iv: String 
+    aes_iv: String,
 }
 #[derive(Debug)]
 pub enum TokenError {
     JoseError,
     TokenExp,
-    AesError
+    AesError,
+    PointFmtError,
 }
-
+pub type Res<T> = Result<T, TokenError>;
+pub trait ComFrom<T>: Sized {
+    fn com_from(_t: T) -> Res<Self>;
+}
+impl ComFrom<Vec<u8>> for Vec<u8> {
+    fn com_from(s: Vec<u8>) -> Res<Self> {
+        Ok(s)
+    }
+}
 type Aes128Ecb = Ecb<Aes128, Pkcs7>;
-impl <'a> Token<'a> {
+impl<'a> Token<'a> {
     pub fn new() -> Self {
-        let k = SECRET_KEY;
         Token {
             jwt_secret: "0123456789ABCDEF",
-            aes_iv: "0123456789abcdef".to_string(),
-            aes_key: k.to_string()
-       }
+            aes_iv: IV.to_string(),
+            aes_key: SECRET_KEY.to_string(),
+        }
     }
     pub fn encode(&self, claim: Map<String, Value>, exp: u64) -> String {
         let mut header = JweHeader::new();
@@ -75,19 +88,21 @@ impl <'a> Token<'a> {
         // copy message to the buffer
         let pos = plaintext.len();
         let len = pos + 16 - pos % 16;
-        let mut buffer = Vec::with_capacity(len);//[0u8; len];
-        for _a in 0..len{
+        let mut buffer = Vec::with_capacity(len); //[0u8; len];
+        for _a in 0..len {
             buffer.push(0);
         }
-        println!("len = {}, pos = {}", buffer.len(), pos);
         buffer[..pos].copy_from_slice(plaintext);
         let ciphertext = cipher.encrypt(&mut buffer, pos)?;
         Ok(base64::encode(ciphertext))
     }
-    pub fn aes_decode(&self, str: &str) -> Result<Vec<u8>, TokenError> {
+    pub fn aes_decode<T>(&self, str: &str) -> Res<T>
+    where
+        T: ComFrom<Vec<u8>>,
+    {
         let cipher = Aes128Ecb::new_var(self.aes_key.as_bytes(), self.aes_iv.as_bytes()).unwrap();
         let mut buf = base64::decode(str).unwrap();
-                let decrypted_ciphertext = cipher.decrypt(&mut buf).unwrap();
-        Ok(decrypted_ciphertext.to_vec())
+        let decrypted_ciphertext = cipher.decrypt(&mut buf).unwrap();
+         T::com_from(decrypted_ciphertext.to_vec())
     }
 }

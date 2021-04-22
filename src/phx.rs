@@ -1,8 +1,10 @@
-use std::io::Cursor;
+use crate::token::ComFrom;
+
 use super::token::Token;
 use super::Behavior;
 use super::{
     captcha::{get_captcha, DoubleBuffer},
+    token::Res,
     token::TokenError,
 };
 use josekit::{
@@ -10,14 +12,15 @@ use josekit::{
     jwt::{self, JwtPayload},
     JoseError, Map, Value,
 };
-use rocket::{http::hyper::header::CONTENT_TYPE, post};
 use rocket::http::Header;
-use rocket::Response;
 use rocket::routes;
+use rocket::Response;
+use rocket::{http::hyper::header::CONTENT_TYPE, post};
 use rocket::{tokio::runtime::Runtime, Shutdown, State};
 use rocket_contrib::{json::Json, serve::StaticFiles};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Result};
+use std::io::Cursor;
 use std::{sync::Arc, thread};
 extern crate base64;
 #[derive(Debug, Deserialize, Serialize)]
@@ -27,6 +30,21 @@ pub struct Position {
     token: String,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Point {
+    pub x: i64,
+    pub y: i64,
+}
+impl ComFrom<Vec<u8>> for Point {
+    fn com_from(s: Vec<u8>) -> Res<Point> {
+        let str = String::from_utf8(s).unwrap();
+        if let Ok(p) = serde_json::from_str(str.as_str()) {
+            Ok(p)
+        } else {
+            Err(TokenError::PointFmtError)
+        }
+    }
+}
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CaptchaType {
     captchaType: String,
@@ -64,6 +82,10 @@ fn captcha_get(state: State<DoubleBuffer>, cap_type: Json<CaptchaType>) -> Respo
                     "repData": {
                         "originalImageBase64": dst_image_base64,
                          "jigsawImageBase64": dst_block_base64,
+                         "point":{
+                            "x": p.x,
+                            "y": p.y
+                         },
                         "token": token, //一次校验唯一标识
                         "result": false,
                         "opAdmin": false
@@ -92,19 +114,41 @@ fn captcha_check(_state: State<DoubleBuffer>, position: Json<Position>) -> Respo
     // check token
     let token = Token::new();
     let body = match token.verify(&pos.token) {
-        Ok(_) => {
-            json!({
-            "repCode": "0000",
-            "repData": {
-                "captchaType": "blockPuzzle",
-                "token": pos.token,
-                "result": true,
-                "opAdmin": false
-            },
-            "success": true,
-            "error": false
-                })
-        },
+        Ok(claim) => {
+            //
+            match token.aes_decode::<Point>(pos.pointJson.as_str()) {
+                Ok(point) => {
+                    let diff = claim["x"].as_i64().unwrap() - point.x;
+                   let r = if diff < 5 || diff > -5 {
+                        json!({
+                        "repCode": "0000",
+                        "repData": {
+                            "captchaType": "blockPuzzle",
+                            "token": pos.token,
+                            "result": true,
+                            "opAdmin": false
+                        },
+                        "success": true,
+                        "error": false
+                            })
+                    } else {
+                        json!({
+                        "repCode": "0001",
+                        "success": false,
+                        "error": true
+                            })
+                    };
+                    r
+                },
+                Err(_) => {
+                    json!({
+                    "repCode": "0001",
+                    "success": false,
+                    "error": true
+                        })
+                }
+            }
+        }
         Err(e) => {
             println!("token error = {:?}", e);
             json!({

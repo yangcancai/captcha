@@ -2,9 +2,9 @@ extern crate image;
 extern crate num_complex;
 use std::rc::Rc;
 use std::{cell::RefCell, collections::HashMap};
-pub mod token;
 pub mod captcha;
 pub mod phx;
+pub mod token;
 
 /// 管理模块
 
