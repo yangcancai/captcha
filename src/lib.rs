@@ -5,6 +5,7 @@ use std::{cell::RefCell, collections::HashMap};
 pub mod captcha;
 pub mod phx;
 pub mod token;
+pub mod time;
 
 /// 管理模块
 

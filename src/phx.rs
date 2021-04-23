@@ -1,6 +1,7 @@
 use crate::token::ComFrom;
 
 use super::token::Token;
+use super::time;
 use super::Behavior;
 use super::{
     captcha::{get_captcha, DoubleBuffer},
@@ -59,19 +60,23 @@ fn captcha_get(state: State<DoubleBuffer>, cap_type: Json<CaptchaType>) -> Respo
     let mut response = Response::new();
     let header = Header::new(CONTENT_TYPE.as_str(), "application/json");
     response.adjoin_header(header);
+    let start = time::epoch();
     match get_captcha(Arc::clone(&state)) {
         Ok(p) => {
-            use std::io::Cursor;
-            let (mut dst_block_buff, mut dst_image_buff) =
-                (Cursor::new(vec![]), Cursor::new(vec![]));
-            p.dst_block
-                .write_to(&mut dst_block_buff, image::ImageOutputFormat::Png)
-                .unwrap();
-            let dst_block_base64 = base64::encode(dst_block_buff.get_ref());
-            p.dst_image
-                .write_to(&mut dst_image_buff, image::ImageOutputFormat::Png)
-                .unwrap();
-            let dst_image_base64 = base64::encode(dst_image_buff.get_ref());
+            // use std::io::Cursor;
+            // let (mut dst_block_buff, mut dst_image_buff) =
+            //     (Cursor::new(vec![]), Cursor::new(vec![]));
+            let dst_block_base64 = p.dst_block_base64;
+            let dst_image_base64 = p.dst_image_base64;
+            // p.dst_block
+            //     .write_to(&mut dst_block_buff, image::ImageOutputFormat::Png)
+            //     .unwrap();
+
+            // let dst_block_base64 = base64::encode(dst_block_buff.get_ref());
+            // p.dst_image
+            //     .write_to(&mut dst_image_buff, image::ImageOutputFormat::Png)
+            //     .unwrap();
+            // let dst_image_base64 = base64::encode(dst_image_buff.get_ref());
             let token = Token::new();
             let mut claim = Map::new();
             claim.insert("x".to_string(), json!(p.x));
@@ -94,7 +99,10 @@ fn captcha_get(state: State<DoubleBuffer>, cap_type: Json<CaptchaType>) -> Respo
                     "success": true,
                     "error": false
             });
+            let get_captcha_time = time::epoch();
             response.set_sized_body(body.to_string().len(), Cursor::new(body.to_string()));
+            let last = time::epoch();
+            println!("==>(start, get_captcha, resp) = ({},{},{}) ", get_captcha_time - start, last - get_captcha_time, last - start);
             response
         }
 

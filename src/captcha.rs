@@ -24,6 +24,8 @@ pub enum Error {
 pub struct Pair {
     pub dst_image: DynamicImage,
     pub dst_block: DynamicImage,
+    pub dst_image_base64: String,
+    pub dst_block_base64: String,
     pub x: u32,
     pub y: u32,
 }
@@ -37,7 +39,8 @@ impl DstDoubleBuffer {
     pub fn new() -> DoubleBuffer {
         Arc::new(Mutex::new(DstDoubleBuffer {
             dst_buffer_one: Vec::new(),
-            dst_buffer_two: Vec::new(), // rng: Arc::new(Mutex::new(thread_rng()))
+            dst_buffer_two: Vec::new() // rng: Arc::new(Mutex::new(thread_rng()))
+            
         }))
     }
 }
@@ -133,12 +136,27 @@ impl Captcha {
                 }
             }
         }
+         use std::io::Cursor;
+        let (mut dst_block_buff, mut dst_image_buff) =
+                (Cursor::new(vec![]), Cursor::new(vec![]));
+           slidingblock 
+                .write_to(&mut dst_block_buff, image::ImageOutputFormat::Png)
+                .unwrap();
+
+            let dst_block_base64 = base64::encode(dst_block_buff.get_ref());
+           original 
+                .write_to(&mut dst_image_buff, image::ImageOutputFormat::Png)
+                .unwrap();
+            let dst_image_base64 = base64::encode(dst_image_buff.get_ref());
+
         // 随机存放在dst_pair_list
         let p = Pair {
             dst_block: slidingblock,
             dst_image: original,
             x: rand_x,
             y: rand_y,
+            dst_block_base64: dst_block_base64,
+            dst_image_base64: dst_image_base64 
         };
         if self.dst_double_buffer.lock().unwrap().dst_buffer_one.len() < 10 {
             self.dst_double_buffer
