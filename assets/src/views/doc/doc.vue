@@ -7,7 +7,7 @@
     </el-container>
     <el-main>
       <iframe id="mainContent"  style="position:absolute;width:99%;height:80vh;top:64px"
-              src="https://captcha.anji-plus.com/captcha-doc/"
+              src="./captcha-doc/"
       ></iframe>
     </el-main>
   </div>

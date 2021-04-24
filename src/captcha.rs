@@ -204,9 +204,15 @@ impl Behavior for Captcha {
         match SystemTime::now().duration_since(UNIX_EPOCH) {
             Ok(n) => {
                 if n.as_secs() > self.next_epoch {
-                    self.generate();
+                    if self.dst_double_buffer.lock().unwrap().dst_buffer_one.len() > 0{
+                        self.generate();
+                    }else{
+                        for _ in 0..9{
+                            self.generate();
+                        }
+                    }
                     // reset next epoch
-                    self.next_epoch = n.as_secs() + 3;
+                    self.next_epoch = n.as_secs() + 60;
                 }
             }
             Err(_) => {}

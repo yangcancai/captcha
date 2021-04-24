@@ -33,8 +33,8 @@ pub struct Position {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Point {
-    pub x: i64,
-    pub y: i64,
+    pub x: f64,
+    pub y: f64,
 }
 impl ComFrom<Vec<u8>> for Point {
     fn com_from(s: Vec<u8>) -> Res<Point> {
@@ -42,6 +42,7 @@ impl ComFrom<Vec<u8>> for Point {
         if let Ok(p) = serde_json::from_str(str.as_str()) {
             Ok(p)
         } else {
+            println!("point string = {}", str);
             Err(TokenError::PointFmtError)
         }
     }
@@ -129,8 +130,8 @@ fn captcha_check(_state: State<DoubleBuffer>, position: Json<Position>) -> Respo
             match token.aes_decode::<Point>(pos.pointJson.as_str()) {
                 Ok(point) => {
                     println!("point = {:?}", point);
-                    let diff = claim["x"].as_i64().unwrap() - point.x;
-                   let r = if diff < 5 && diff > -5 {
+                    let diff = claim["x"].as_f64().unwrap() - point.x;
+                   let r = if diff < 5.0 && diff > -5.0 {
                         json!({
                         "repCode": "0000",
                         "repData": {
@@ -143,6 +144,7 @@ fn captcha_check(_state: State<DoubleBuffer>, position: Json<Position>) -> Respo
                         "error": false
                             })
                     } else {
+                        println!("pointjson claim_x = {:?}, claim_y={}", claim["x"], claim["y"]);
                         json!({
                         "repCode": "0001",
                         "success": false,
@@ -151,7 +153,8 @@ fn captcha_check(_state: State<DoubleBuffer>, position: Json<Position>) -> Respo
                     };
                     r
                 },
-                Err(_) => {
+                Err(e) => {
+                    println!("token error = {:?}", e);
                     json!({
                     "repCode": "0001",
                     "success": false,
